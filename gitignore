@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Generated outputs
+output/
+data/generated/
+data/results/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

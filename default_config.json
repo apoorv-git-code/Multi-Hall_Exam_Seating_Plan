@@ -1,0 +1,15 @@
+{
+  "neighbourhood": "4",
+  "weights": {
+    "w_same_branch": 3.0,
+    "w_consecutive_roll": 2.0,
+    "w_distance_two_conflict": 1.0,
+    "w_wasted_seat": 0.5
+  },
+  "backtracking": {
+    "node_limit": 200000,
+    "time_limit_seconds": 10.0
+  },
+  "random_seed": 42,
+  "output_dir": "output"
+}
