@@ -1,6 +1,5 @@
-# PROGRESS.md
+# Multi-Hall Exam Seating Allocation Using Graph Coloring, Greedy Heuristics, and Backtracking with Pruning
 
-Project: Multi-Hall Exam Seating Allocation Using Graph Coloring, Greedy Heuristics, and Backtracking with Pruning
 Language: Python 3.10+, standard library only. Algorithms implemented from scratch (see README section 2).
 Last updated: Step 1 complete
 
