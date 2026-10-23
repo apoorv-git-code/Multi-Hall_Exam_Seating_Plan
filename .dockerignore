@@ -1,0 +1,17 @@
+.git
+**/__pycache__
+**/*.pyc
+frontend/node_modules
+frontend/dist
+output
+data/generated
+data/results
+tests
+docs
+experiments
+scripts
+*.md
+!README.md
+Dockerfile
+docker-compose.yml
+.dockerignore

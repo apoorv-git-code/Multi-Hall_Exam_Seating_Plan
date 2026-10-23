@@ -17,3 +17,7 @@ data/results/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Web app
+frontend/node_modules/
+frontend/dist/

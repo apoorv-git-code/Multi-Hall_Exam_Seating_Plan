@@ -10,8 +10,6 @@ Definitions (README section 4, benchmark_results.csv):
 
 from __future__ import annotations
 
-import math
-
 from src.grid.constraints import validate_allocation
 from src.grid.scoring import compute_soft_score, soft_breakdown
 from src.models.allocation import Allocation
@@ -110,7 +108,7 @@ def stdev(values: list[float]) -> float:
     total = 0.0
     for value in values:
         total += (value - average) ** 2
-    return math.sqrt(total / (len(values) - 1))
+    return (total / (len(values) - 1)) ** 0.5
 
 
 def summarize(values: list[float]) -> dict[str, float]:

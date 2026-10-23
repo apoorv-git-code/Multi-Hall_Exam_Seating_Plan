@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    image: exam-seating:latest
+    ports:
+      - "8000:8000"
+    environment:
+      SESSION_TTL_SECONDS: "7200"     # idle time before a session's data is dropped
+      MAX_SESSIONS: "200"             # hard cap; least recently used session is evicted beyond it
+      MAX_CONCURRENT_JOBS: "4"        # simultaneous allocations/benchmarks (CPU protection)
+      COOKIE_SECURE: "0"              # set to "1" when published behind HTTPS
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

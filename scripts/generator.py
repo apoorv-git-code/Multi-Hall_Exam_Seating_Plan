@@ -19,7 +19,6 @@ O(total cells) because blocked seats are drawn from the full cell list.
 from __future__ import annotations
 
 import csv
-import math
 import random
 from pathlib import Path
 
@@ -118,7 +117,10 @@ def generate_halls(
         raise ValueError("max_blocked_fraction must be within [0, 0.5]")
 
     rng = random.Random(seed + 7919)  # separate stream from the student generator
-    target_cells = math.ceil(n_students * slack)
+    exact = n_students * slack
+    target_cells = int(exact)
+    if target_cells < exact:
+        target_cells += 1  # ceiling
     per_hall = -(-target_cells // n_halls)  # ceiling division
 
     specs: list[list] = []  # each entry: [rows, cols, blocked_set]

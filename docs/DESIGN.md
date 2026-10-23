@@ -67,12 +67,30 @@ choice and tries its next option. Because empty seats are the last option at eac
 level, the first path found is the pure greedy path and backtracking only happens
 when the greedy path runs short of seats.
 
+**Strategy ladder.** Chronological backtracking cannot repair an early decision
+that used too many buffer seats (observed in Step 7: a 40-student dense dataset
+was seated for the Welsh-Powell coloring but not for the Greedy coloring, even
+with 3 million options). The mapper therefore makes up to three attempts and
+keeps the first that seats everyone:
+
+| Attempt | Scan order inside a color class | Candidate order | Candidates per seat |
+|---------|--------------------------------|-----------------|---------------------|
+| a. quality first | vertex order | (current class first, soft penalty) | 8 |
+| b. hardest first | conflict degree, highest first | (current class first, higher degree first, soft penalty) | 8 |
+| c. hardest first, wide | conflict degree, highest first | same as b | 32 |
+
+"Hardest first" seats students with many conflicts early, while many compatible
+partners remain, and leaves low-conflict students for the end when the pool is
+small. It succeeds more often but ignores the soft penalty more, which is why it
+is a fallback and not the default. When attempt a succeeds the result is exactly
+attempt a's result.
+
 **Termination.**
 
 | Outcome | When |
 |---------|------|
-| Success | every student is seated |
-| `InfeasibleAllocationError` | total capacity below the number of students, or the whole search space was exhausted, or more than `S + node_limit` options were tried (S = number of usable seats) |
+| Success | some attempt seats every student |
+| `InfeasibleAllocationError` | total capacity below the number of students, or all three attempts failed (search space exhausted or per-attempt budget used up). The per-attempt budget is `S + max(node_limit // 3, 20000)`, where S is the number of usable seats; the floor of 20000 keeps Phase 2 usable when `node_limit` is set low for coloring |
 
 The result is always checked by `validate_allocation`. If that ever fails the
 mapper raises `RuntimeError` (an internal bug, never a data problem).
@@ -114,7 +132,7 @@ Refinements to the README wording:
 | Seat sequence | O(rows x cols) per hall | O(S) |
 | Candidate collection at one seat | O(R x deg x log Delta) for R students scanned (R is usually about K) | O(K) |
 | Whole mapping, typical (no backtracking) | O(S x (R x deg x log Delta + K log K)) | O(S x K + V) |
-| Whole mapping, worst case | exponential in S, capped at `S + node_limit` options | O(S x K + V) |
+| Whole mapping, worst case | exponential in S, capped at `S + max(node_limit // 3, 20000)` options per attempt, at most 3 attempts | O(S x K + V) |
 | `validate_allocation` | O(S x c) | O(V + S) |
 | `compute_soft_score` | O(S x c) | O(V + S) |
 
@@ -140,11 +158,13 @@ conflict), so they need many buffers. Sparse datasets need few.
 
 ## 9. Limitations
 
-1. **Candidate cap.** Only `K = 8` compatible students are tried at each seat. On
-   instances with more than 8 compatible students the search is not complete, so
-   a feasible tight-capacity instance could be reported infeasible. When there are
-   at most 8 students the search is complete; Step 6 tests compare it with
-   exhaustive search on tiny instances.
+1. **Candidate cap.** Only 8 (attempts a, b) or 32 (attempt c) compatible
+   students are tried at each seat. On instances with more compatible students
+   than that the search is not complete, so a feasible tight-capacity instance
+   can still be reported infeasible. With at most 8 students the search is
+   complete; Step 6 checks compared it with exhaustive search on 203 tiny
+   instances. On a stress set of 48 dense, tight-capacity cases (24 datasets, two
+   colorings each) the ladder seats 44; attempt a alone seated 40.
 2. **Dense data with the 8-neighbourhood.** With diagonals counted, dense
    datasets (such as 200 students and 12 courses with capacity 1.25 V) are
    usually infeasible. The mapper reports this after exhausting the budget, which

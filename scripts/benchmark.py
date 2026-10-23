@@ -21,6 +21,8 @@ This module does no file output or printing; ``reporting`` writes the rows.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from src.algorithms.backtracking import color_backtracking
 from src.algorithms.coloring_result import ColoringResult
 from src.algorithms.greedy_first_fit import color_greedy_first_fit
@@ -28,12 +30,66 @@ from src.algorithms.welsh_powell import color_welsh_powell
 from src.analysis.metrics import evaluate_allocation, mean
 from src.dataio.generator import generate_halls, generate_students
 from src.graph.conflict_graph import ConflictGraph, build_conflict_graph
+from src.graph.graph_metrics import graph_summary
 from src.grid.seat_mapper import InfeasibleAllocationError, map_colors_to_seats
+from src.models.allocation import Allocation
 from src.models.hall import Hall
 from src.models.student import Student
 
 #: Valid algorithm names, in the order they appear in result tables.
 ALGORITHMS: tuple[str, ...] = ("greedy", "welsh_powell", "backtracking")
+
+
+@dataclass
+class PipelineRun:
+    """Outcome of one end-to-end allocation run."""
+
+    algorithm: str
+    coloring: ColoringResult
+    allocation: Allocation | None
+    quality: dict | None
+    graph_info: dict
+    error: str | None = None
+
+    def run_info(self) -> dict:
+        return {
+            "algorithm": self.algorithm,
+            "colors_used": self.coloring.num_colors,
+            "runtime_ms": self.coloring.runtime_ms,
+            "nodes_explored": self.coloring.nodes_explored,
+            "completed": self.coloring.completed,
+        }
+
+
+def run_pipeline(
+    students: list[Student],
+    halls: list[Hall],
+    algorithm: str,
+    config: dict,
+    graph: ConflictGraph | None = None,
+) -> PipelineRun:
+    """Run the two-phase pipeline: conflict graph -> coloring -> seat mapping."""
+    if graph is None:
+        graph = build_conflict_graph(students)
+    info = graph_summary(graph)
+    coloring = run_coloring(algorithm, graph, config)
+    allocation: Allocation | None = None
+    quality: dict | None = None
+    error: str | None = None
+    try:
+        allocation = map_colors_to_seats(students, graph, coloring, halls, config)
+        quality = evaluate_allocation(allocation, students, halls, config)
+    except InfeasibleAllocationError as exc:
+        error = str(exc)
+    return PipelineRun(
+        algorithm=algorithm,
+        coloring=coloring,
+        allocation=allocation,
+        quality=quality,
+        graph_info=info,
+        error=error,
+    )
+
 
 #: Column order of ``benchmark_results.csv``.
 RESULT_COLUMNS: tuple[str, ...] = (
