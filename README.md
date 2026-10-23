@@ -1,9 +1,12 @@
-# Multi-Hall Exam Seating Allocation Using Graph Coloring, Greedy Heuristics, and Backtracking with Pruning
+# Multi-Hall Exam Seating Allocation
+
+A graph-coloring-based exam seating system with a Python CLI and an optional FastAPI + React web dashboard.
 
 **Course:** Design and Analysis of Algorithms (DAA)
 **Type:** Individual course project (50% of internal assessment)
-**Implementation language:** Python 3.10+ (standard library only)
-**Constraint:** Everything algorithmic is implemented from scratch. No external libraries.
+**Core implementation:** Python 3.10+; graph coloring, seat mapping, scoring, and other algorithmic logic are implemented from scratch.
+**CLI dependencies:** Python standard library only.
+**Optional web interface:** FastAPI backend and a Vite + React + Tailwind + Recharts + Lucide frontend. Web dependencies are isolated from the core CLI.
 
 ---
 
@@ -15,12 +18,13 @@
 4. [System Architecture and Constraints](#4-system-architecture-and-constraints)
 5. [Folder Structure Reference](#5-folder-structure-reference)
 6. [Build and Execution Instructions](#6-build-and-execution-instructions)
-7. [Testing Strategy](#7-testing-strategy)
-8. [Experiment Plan](#8-experiment-plan)
-9. [Multi-Session Continuity Protocol](#9-multi-session-continuity-protocol)
-10. [Development Rules](#10-development-rules)
-11. [Roadmap](#11-roadmap)
-12. [Academic Integrity Note](#12-academic-integrity-note)
+7. [Web Dashboard](#7-web-dashboard)
+8. [Testing Strategy](#8-testing-strategy)
+9. [Experiment Plan](#9-experiment-plan)
+10. [Multi-Session Continuity Protocol](#10-multi-session-continuity-protocol)
+11. [Development Rules](#11-development-rules)
+12. [Roadmap](#12-roadmap)
+13. [Academic Integrity Note](#13-academic-integrity-note)
 
 ---
 
@@ -78,18 +82,26 @@ The exact Phase 2 placement strategy is documented in `docs/DESIGN.md` when the 
 
 ## 2. Technology and Library Policy
 
-### 2.1 Language and Tools
+### 2.1 Core CLI
 
 - Python 3.10 or newer.
-- No `pip install` step. There is no `requirements.txt` because there are no dependencies.
+- The core CLI uses the Python standard library only; no `pip install` step is needed for CLI use.
+- The algorithmic implementation remains self-contained and does not rely on third-party algorithm libraries.
 
-### 2.2 Allowed (standard library, non-algorithmic use only)
+### 2.2 Optional web application
+
+- Backend: FastAPI, served by Uvicorn.
+- Frontend: Vite + React + Tailwind CSS + Recharts + Lucide.
+- Install web-specific dependencies from `requirements-web.txt`; development/test dependencies are listed in `requirements-web-dev.txt`.
+- The web dependencies support the HTTP/API and dashboard layers; they do not replace the project's hand-written algorithm implementations.
+
+### 2.3 Allowed (standard library, non-algorithmic use only)
 
 `os`, `sys`, `time`, `random` (seeded dataset generation only), `csv`, `json`, `argparse`, `pathlib`, `dataclasses`, `typing`, `math` (basic arithmetic only), `unittest`, `datetime`, `html` (escaping only).
 
 Built-in `list`, `dict`, `set`, `tuple`, and `str` types are allowed as basic containers.
 
-### 2.3 Not Allowed
+### 2.4 Not Allowed
 
 | Category | Banned |
 |----------|--------|
@@ -492,13 +504,137 @@ Runs all three algorithms on a small sample dataset and prints a side-by-side co
 ### 6.8 Run Tests and Import Check
 
 ```bash
+# Core and integration tests
 python -m unittest discover -s tests -v
 python scripts/check_imports.py
+
+# Web/API and session tests (install requirements-web-dev.txt first)
+python -m unittest tests.test_server tests.test_sessions -v
 ```
+
 
 ---
 
-## 7. Testing Strategy
+## 7. Web Dashboard
+
+The optional web showcase provides a browser-based interface to the same seating-allocation pipeline. `server.py` is a thin HTTP layer over `src/`; it does not contain allocation or scoring logic of its own. The frontend lives in `frontend/`.
+
+### 7.1 Architecture
+
+- **FastAPI backend:** validates requests, manages browser sessions, calls the project modules, and serves API responses and exports.
+- **React dashboard:** provides the interactive interface, charts, allocation metrics, and visual seat/penalty views.
+- **Core engine:** graph construction, coloring algorithms, seat mapping, hard-constraint validation, and soft-constraint scoring remain in `src/`.
+- **Production serving:** after the frontend is built, FastAPI serves the built frontend from `frontend/dist`.
+
+### 7.2 Run the web app locally
+
+Requirements: Python 3.10+ and Node.js/npm.
+
+**Terminal 1 — backend**
+
+```bash
+pip install -r requirements-web.txt
+uvicorn server:app --port 8000
+```
+
+API documentation is available at `http://localhost:8000/docs`.
+
+**Terminal 2 — frontend development server**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite development server normally runs at `http://localhost:5173` and proxies `/api` requests to the backend.
+
+**Production-style local run**
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+Then (re)start Uvicorn. FastAPI serves the built frontend at `http://localhost:8000`.
+
+### 7.3 API endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/dataset/generate` | Generate a seeded dataset using student, hall, course, and seed parameters |
+| `POST` | `/api/dataset/upload` | Upload a CSV dataset |
+| `POST` | `/api/dataset/load` | Load dataset data from a JSON request body |
+| `POST` | `/api/dataset/sample` | Load the bundled sample dataset |
+| `GET` | `/api/algorithms` | List available algorithms, unavailable options, and default weights |
+| `POST` | `/api/allocate` | Run allocation and return seats, metrics, soft-constraint breakdown, and per-seat heat data |
+| `POST` | `/api/benchmark` | Run density-mode or size-mode benchmarks |
+| `GET` | `/api/export/csv` | Download a CSV report |
+| `GET` | `/api/export/html` | Download a printable HTML report |
+| `GET` | `/api/export/md` | Download a Markdown report |
+| `GET` | `/api/export/svg` | Download an SVG plot; use `?plot=` to select a plot |
+| `GET` | `/api/session` | Inspect the current browser session's stored state |
+| `DELETE` | `/api/session` | Clear the current session's dataset, allocation, and benchmark |
+| `GET` | `/healthz` | Liveness probe; does not create a session |
+
+An allocation that cannot complete Phase 2 may return HTTP `200` with `status: "infeasible"`; clients should inspect the response status field, not only the HTTP status.
+
+### 7.4 Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `CORS_ORIGINS` | Local development origins (`localhost:5173`, `localhost:3000`) | Allowed origins when the frontend is hosted separately |
+| `VITE_API_BASE` | Not set | API origin when the frontend is deployed separately |
+| `VITE_API_TARGET` | `http://localhost:8000` | Vite development proxy target |
+| `SESSION_TTL_SECONDS` | `7200` | Idle lifetime of a browser session |
+| `MAX_SESSIONS` | `200` | Maximum number of in-memory sessions before least-recently-used eviction |
+| `MAX_CONCURRENT_JOBS` | `4` | Maximum simultaneous allocations/benchmarks |
+| `COOKIE_SECURE` | `0` | Set to `1` when serving over HTTPS |
+
+When hosting the frontend on a different origin, configure `CORS_ORIGINS` explicitly. For cross-origin session cookies, configure the deployment consistently for the chosen HTTPS/origin setup.
+
+### 7.5 Algorithm and metric notes
+
+- **DSatur is not available** unless it is implemented in `src/algorithms`; the web API reports it as unavailable and the UI disables it.
+- **LDF** means Welsh–Powell (largest-degree-first ordering); `ldf` is accepted as an alias.
+- **Exact** refers to bounded backtracking, not an unlimited guarantee of an optimal answer.
+- The dashboard's sliders use the four engine weights: `w_same_branch`, `w_consecutive_roll`, `w_distance_two_conflict`, and `w_wasted_seat`. “Buffer distance” maps to `w_distance_two_conflict`; the engine does not have a separate “aisle preference” weight.
+- The chromatic number `χ(G)` is labelled exact only when the search proves it; otherwise the interface reports the number of colors used as an upper bound.
+- Heatmap values distribute the backend's pair penalties over seats. The `soft.heat_reconciles` field indicates whether the heat values sum to the backend score.
+- The browser independently checks adjacency from raw seat data for its conflict indicator.
+
+### 7.6 Sessions and deployment limitations
+
+Each browser receives an opaque random `exam_session` cookie (`HttpOnly`, `SameSite=Lax`; set `COOKIE_SECURE=1` over HTTPS). The cookie selects a server-side session containing that browser's dataset, latest allocation, and latest benchmark; exports use the latest result in that session.
+
+Important limitations:
+
+- Session state is stored in the memory of one process. Run one worker unless sticky sessions or a shared session store (such as Redis) is added.
+- Restarting the server clears all sessions.
+- Sessions isolate browser state but do **not** authenticate users. There is no login, per-IP rate limiting, or built-in TLS. Use an appropriately configured reverse proxy and security controls before exposing the app publicly.
+- `MAX_CONCURRENT_JOBS` limits simultaneous allocation/benchmark jobs; excess requests wait up to `JOB_WAIT_SECONDS` (default `20`) and may receive `503` with `Retry-After`.
+
+### 7.7 Docker deployment
+
+Build and run with Docker:
+
+```bash
+docker build -t exam-seating .
+docker run --rm -p 8000:8000 exam-seating
+```
+
+Or use Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The provided two-stage Docker build compiles the frontend and runs Uvicorn in a slim Python image as an unprivileged user, with one worker and a `/healthz` health check. When serving over HTTPS, set `COOKIE_SECURE=1`.
+
+---
+
+## 8. Testing Strategy
 
 | Level | What is verified |
 |-------|------------------|
@@ -513,7 +649,7 @@ python scripts/check_imports.py
 
 ---
 
-## 8. Experiment Plan
+## 9. Experiment Plan
 
 | Experiment | Variable | Measured |
 |------------|----------|----------|
@@ -528,7 +664,7 @@ Each timing is averaged over repeated runs with fixed seeds. Results go to `data
 
 ---
 
-## 9. Multi-Session Continuity Protocol
+## 10. Multi-Session Continuity Protocol
 
 This project is built across many AI sessions and possibly different accounts. The AI has no memory between sessions, so **`PROGRESS.md` is the single source of truth** for project state.
 
@@ -589,7 +725,7 @@ Below are PROGRESS.md and the files this step depends on.
 
 ---
 
-## 10. Development Rules
+## 11. Development Rules
 
 1. **Zero truncation:** no placeholders, no ellipsis comments, no partial implementations.
 2. **Modular builds:** one module or small group of modules per prompt.
@@ -602,7 +738,7 @@ Below are PROGRESS.md and the files this step depends on.
 
 ---
 
-## 11. Roadmap
+## 12. Roadmap
 
 | Step | Deliverable | Status |
 |------|-------------|--------|
@@ -620,6 +756,6 @@ Below are PROGRESS.md and the files this step depends on.
 
 ---
 
-## 12. Academic Integrity Note
+## 13. Academic Integrity Note
 
 This is an individual project. AI tools may be used for ideas and code generation as permitted by the course, but the student must understand, test, and be able to explain every algorithm and line of code in a viva. No external algorithmic library files are used anywhere in this repository.
